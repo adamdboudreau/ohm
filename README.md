@@ -21,10 +21,15 @@ Related projects
 
 These are libraries in other languages that were inspired by Ohm.
 
+* [Ohm](https://github.com/soveran/ohm-crystal) for Crystal, created by soveran
 * [JOhm](https://github.com/xetorthio/johm) for Java, created by xetorthio
 * [Lohm](https://github.com/slact/lua-ohm) for Lua, created by slact
+* [ohm.lua](https://github.com/amakawa/ohm.lua) for Lua, created by amakawa
 * [Nohm](https://github.com/maritz/nohm) for Node.js, created by maritz
 * [Redisco](https://github.com/iamteem/redisco) for Python, created by iamteem
+* [redis3m](https://github.com/luca3m/redis3m) for C++, created by luca3m
+* [Ohmoc](https://github.com/seppo0010/ohmoc) for Objective-C, created by seppo0010
+* [Sohm](https://github.com/xxuejie/sohm.lua) for Lua, compatible with Twemproxy
 
 Articles and Presentations
 --------------------------
@@ -35,6 +40,7 @@ Articles and Presentations
 * [Ohm (Redis ORM)](http://blog.s21g.com/articles/1717) (Japanese)
 * [Redis and Ohm](http://www.slideshare.net/awksedgreep/redis-and-ohm)
 * [Ruby off Rails](http://www.slideshare.net/cyx.ucron/ruby-off-rails)
+* [Data modeling with Redis and Ohm](http://www.sitepoint.com/semi-relational-data-modeling-redis-ohm/)
 
 Getting started
 ---------------
@@ -148,13 +154,17 @@ event.id
 event == Event[1]
 # => true
 
+# Update an event
+event.update :name => "Ohm Worldwide Conference 2032"
+# => #<Event:0x007fb4c35e2458 @attributes={:name=>"Ohm Worldwide Conference"}, @_memo={}, @id="1">
+
 # Trying to find a non existent event
 Event[2]
 # => nil
 
 # Finding all the events
 Event.all.to_a
-# => [<Event:1 name='Ohm Worldwide Conference 2031'>]
+# => [<Event:1 name='Ohm Worldwide Conference 2032'>]
 ```
 
 This example shows some basic features, like attribute declarations and
@@ -163,11 +173,17 @@ querying. Keep reading to find out what you can do with models.
 Attribute types
 ---------------
 
-Ohm::Model provides four attribute types: {Ohm::Model.attribute
-attribute}, {Ohm::Model.set set}, {Ohm::Model.list list}
-and {Ohm::Model.counter counter}; and two meta types:
-{Ohm::Model.reference reference} and {Ohm::Model.collection
-collection}.
+Ohm::Model provides 4 attribute types:
+
+* `Ohm::Model.attribute`,
+* `Ohm::Model.set`
+* `Ohm::Model.list`
+* `Ohm::Model.counter`
+
+and 2 meta types:
+
+* `Ohm::Model.reference`
+* `Ohm::Model.collection`.
 
 ### attribute
 
@@ -193,8 +209,8 @@ and for keeping elements in order.
 A `counter` is like a regular attribute, but the direct manipulation
 of the value is not allowed. You can retrieve, increase or decrease
 the value, but you can not assign it. In the example above, we used a
-counter attribute for tracking votes. As the incr and decr operations
-are atomic, you can rest assured a vote won't be counted twice.
+counter attribute for tracking votes. As the `increment` and `decrement`
+operations are atomic, you can rest assured a vote won't be counted twice.
 
 ### reference
 
@@ -206,6 +222,41 @@ containing the foreign key to another model.
 ### collection
 
 Provides an accessor to search for all models that `reference` the current model.
+
+Tracked keys
+------------
+
+Besides the provided attribute types, it is possible to instruct
+Ohm to track arbitrary keys and tie them to the object's lifecycle.
+
+For example:
+
+```ruby
+class Log < Ohm::Model
+  track :text
+  
+  def append(msg)
+    redis.call("APPEND", key[:text], msg)
+  end
+  
+  def tail(n = 100)
+    redis.call("GETRANGE", key[:text], -(n), -1)
+  end
+end
+
+log = Log.create
+log.append("hello\n")
+
+assert_equal "hello\n", log.tail
+
+log.append("world\n")
+
+assert_equal "world\n", log.tail(6)
+```
+
+When the `log` object is deleted, the `:text` key will be deleted
+too. Note that the key is scoped to that particular instance of
+`Log`, so if `log.id` is `42` then the key will be `Log:42:text`.
 
 Persistence strategy
 --------------------
@@ -254,9 +305,9 @@ end
 
 ## Sorting
 
-Since `attendees` is a {Ohm::Model::Set Set}, it exposes two sorting
-methods: {Ohm::Model::Collection#sort sort} returns the elements
-ordered by `id`, and {Ohm::Model::Collection#sort_by sort_by} receives
+Since `attendees` is a `Ohm::Model::Set`, it exposes two sorting
+methods: `Ohm::Model::Collection#sort` returns the elements
+ordered by `id`, and `Ohm::Model::Collection#sort_by` receives
 a parameter with an attribute name, which will determine the sorting
 order. Both methods receive an options hash which is explained below:
 
@@ -287,8 +338,8 @@ Example:
 ### :by
 
 Key or Hash key with which to sort by. An important distinction with
-using {Ohm::Model::Collection#sort sort} and
-{Ohm::Model::Collection#sort_by sort_by} is that `sort_by` automatically
+using `Ohm::Model::Collection#sort` and
+`Ohm::Model::Collection#sort_by` is that `sort_by` automatically
 converts the passed argument with the assumption that it is a hash key
 and it's within the current model you are sorting.
 
@@ -304,8 +355,8 @@ otherwise.
 ### :get
 
 A key pattern to return, e.g. `Post:*->title`. As is the case with
-the `:by` option, using {Ohm::Model::Collection#sort sort} and
-{Ohm::Model::Collection#sort_by sort_by} has distinct differences in
+the `:by` option, using `Ohm::Model::Collection#sort` and
+`Ohm::Model::Collection#sort_by` has distinct differences in
 that `sort_by` does much of the hand-coding for you.
 
 ```ruby
@@ -341,7 +392,7 @@ you can use `post.comments.ids`.
 
 ### References explained
 
-Doing a {Ohm::Model.reference reference} is actually just a shortcut for
+Doing a `Ohm::Model.reference` is actually just a shortcut for
 the following:
 
 ```ruby
@@ -373,10 +424,10 @@ Comment.find(post_id: 1)
 
 ### Collections explained
 
-The reason a {Ohm::Model.reference reference} and a
-{Ohm::Model.collection collection} go hand in hand, is that a collection is
+The reason a `Ohm::Model.reference` and a
+`Ohm::Model.collection` go hand in hand, is that a collection is
 just a macro that defines a finder for you, and we know that to find a model
-by a field requires an {Ohm::Model.index index} to be defined for the field
+by a field requires an `Ohm::Model.index` to be defined for the field
 you want to search.
 
 ```ruby
@@ -410,18 +461,36 @@ Post.to_reference == :post
 # => true
 ```
 
+Modules
+-------
+
+If your models are defined inside a module, you will have to define
+the references and collections as in the following example:
+
+```ruby
+module SomeNamespace
+  class Foo < Ohm::Model
+    attribute :name
+  end
+  
+  class Bar < Ohm::Model
+    reference :foo, 'SomeNamespace::Foo'
+  end
+end
+```
+
 Indices
 -------
 
-An {Ohm::Model.index index} is a set that's handled automatically by Ohm. For
+An `Ohm::Model.index` is a set that's handled automatically by Ohm. For
 any index declared, Ohm maintains different sets of objects IDs for quick
 lookups.
 
 In the `Event` example, the index on the name attribute will
 allow for searches like `Event.find(name: "some value")`.
 
-Note that the methods {Ohm::Model::Set#find find} and
-{Ohm::Model::Set#except except} need a corresponding index in order to work.
+Note that the methods `Ohm::Model::Set#find` and
+`Ohm::Model::Set#except` need a corresponding index in order to work.
 
 ### Finding records
 
@@ -438,8 +507,11 @@ User.find(username: "Albert")
 # Find all users from Argentina
 User.find(country: "Argentina")
 
-# Find all activated users from Argentina
-User.find(country: "Argentina", status: "activated")
+# Find all active users from Argentina
+User.find(country: "Argentina", status: "active")
+
+# Find all active users from Argentina and Uruguay
+User.find(status: "active").combine(country: ["Argentina", "Uruguay"])
 
 # Find all users from Argentina, except those with a suspended account.
 User.find(country: "Argentina").except(status: "suspended")

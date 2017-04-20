@@ -51,13 +51,7 @@ test "raise an error if the parameter supplied is not a hash" do
 end
 
 test "avoid intersections with the all collection" do
-  assert_equal "User:indices:email:foo", User.find(:email => "foo").key
-end
-
-test "cleanup the temporary key after use" do
-  assert User.find(:email => "foo", :activation_code => "bar").to_a
-
-  assert Ohm.redis.call("KEYS", "User:temp:*").empty?
+  assert_equal "User:indices:email:foo", User.find(:email => "foo").key.to_s
 end
 
 test "allow multiple chained finds" do
@@ -129,5 +123,16 @@ scope do
     n.update(capacity: 91)
 
     assert_equal nil, Node.with(:available, true)
+  end
+  
+  test "float to string" do
+    u1 = User.create(:email => "foo", :update => 3.0)
+    u2 = User.create(:email => "bar", :update => 3)
+    
+    assert User.find(:update => 3.0).include?(u1)
+    assert User.find(:update => 3).include?(u2)
+    
+    assert !User.find(:update => 3.0).include?(u2)
+    assert !User.find(:update => 3).include?(u1)
   end
 end

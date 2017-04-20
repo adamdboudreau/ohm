@@ -1,3 +1,95 @@
+## 3.1.1
+
+- Serialize keys as strings when using JSON.
+
+- Reset attributes when calling `load!`.
+
+## 3.1.0
+
+- Use Nest instead of Nido
+
+  A new release of Nest (3.0.0) simplified the interaction
+  with Redis.
+
+- Use Model#hash for equality
+
+  This change just removes some slight redundancy in the code.
+  The external behavior remains unchanged.
+
+## 3.0.3
+
+- Fix bug that gave false positives for unique indices.
+
+  Uniques were indexed for nil values as empty strings. This
+  release fixes that issue.
+
+## 3.0.2
+
+- Fix bug created the wrong keys when indexing floats.
+
+  As reported by @slowernet, if an indexed attribute was assigned a
+  real value with 0 fractional part (eg. 3.0), the `tostring` function
+  in lua truncated the value to an integer. As a result, the index
+  was created with the wrong key (Model:indices:attribute:3, instead
+  of Model:indices:attribute:3.0). The fix is to convert all values
+  to strings before sending them to the Lua script.
+
+## 3.0.1
+
+- Adapt Lua scripts to Redis unstable.
+
+## 3.0.0
+
+- Use JSON instead of msgpack for internal encoding.
+
+  When Ohm started using Lua internally for saving, updating and
+  deleting objects, it used msgpack for serializing. Redis supports
+  both msgpack and JSON, and we picked msgpack because it produces
+  a more compact representation. At some point, the Ruby msgpack
+  library and the internal msgpack support in Redis diverged, and
+  we were forced to lock the dependency to a specific gem version.
+  Recently, some people complained about encoding issues originating
+  from msgpack inside Redis, and once they tried a modified Ohm
+  that uses JSON instead of msgpack, all their issues disappeared.
+  That's why we think it's time for removing msgpack altogether and
+  use JSON instead.
+
+- Move the raise of MissingID to Ohm::Model#key.
+
+  In previous versions, trying to access an instance's `id` would
+  raise a `MissingID` error. The reason why raising that error is
+  convenient is because it allows Ohm to fail as early as possible
+  when you try to use an object that hasn't been saved yet. The
+  error can arise from comparisons, from direct calls to `id`, and
+  also from any call to methods that need `object.key` to return a
+  proper value, as `key` in turn calls the `id` method. But it turns
+  out that many form builders rely on the fact that sending the
+  `id` message to most ORMs results in either a valid ID or `nil`,
+  and here Ohm was the exception. By moving the check from `id` to
+  `key`, we can keep most of the previous behavior and we can return
+  `nil` when sending the `id` message to a new instance, thus making
+  Ohm compatible with most form builders.
+
+- Add `Ohm::Model#increment` and `Ohm::Model#decrement`. These methods
+  are aliases of `incr` and `decr` respectively.
+
+## 2.3.0
+
+- Retry save and delete if scripts were flushed in the server.
+- Depend on Redic ~> 1.5.0 in order to use of `call!` instead of `call`.
+
+## 2.2.1
+
+- Lock msgpack version
+
+## 2.2.0
+
+- Use Stal for set operations
+
+## 2.1.0
+
+- Add `combine` filter
+
 ## 2.0.0
 
 - Lists now respond to range.
@@ -227,6 +319,10 @@
 [nido]: https://github.com/soveran/nido
 [scrivener]: https://github.com/soveran/scrivener
 [redic]: https://github.com/amakawa/redic
+
+## 1.4.0
+
+- Add `combine` filter
 
 ## 1.3.2
 
